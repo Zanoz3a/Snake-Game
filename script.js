@@ -1,12 +1,10 @@
-const currentScore = document.getElementById("score");
 const start = document.getElementById("start");
+const paused = document.getElementById("paused");
 const scoreDisplay = document.getElementById("score");
 const GameOverScreen = document.getElementById("game-over");
 const finalScore = document.getElementById("final-score");
 const canvas = document.getElementById("game");
-
 const ctx = canvas.getContext("2d");
-
 
 
 const scale = 20;
@@ -25,6 +23,7 @@ class Snake {
         ];
     }
 
+    // Обновление размера и положения змейки с каждым шагом
     update() {
         const head = {...this.body[0]};
         head.x += direction.x;
@@ -33,13 +32,14 @@ class Snake {
 
         if (head.x === fruit.x && head.y === fruit.y) {
             score ++;
-            currentScore.innerHTML = score;
+            scoreDisplay.innerHTML = score;
             placeFruit();
         } else {
             this.body.pop();
         }
     }
 
+    // Перекраска сегмента от положения змейки
     coloring () {
         this.body.forEach((segment, i) => {
             ctx.fillStyle = i === 0 ? "#FF7559" : "#FFF38A";
@@ -65,9 +65,7 @@ class Snake {
     }
 }
 
-let snake;
-let fruit;
-
+let snake, fruit;
 function placeFruit() {
     fruit = {
         x: Math.floor(Math.random() * columns),
@@ -79,6 +77,7 @@ function placeFruit() {
     }
 }
 
+// После появления фрукт красится
 function coloringFruit() {
     ctx.fillStyle = "#59FF75";
     ctx.beginPath();
@@ -92,11 +91,9 @@ function coloringFruit() {
     ctx.fill();
 }
 
-let playing = false;
-let lastTime = 0;
-
+let playing = false, lastTime = 0;
 function gameLoop(time = 0) {
-    if (!playing) return 0;
+    if (!playing || pause) return 0;
     const delta = time - lastTime;
     if (delta > speed) {
         direction = nextDirection;
@@ -115,6 +112,48 @@ function gameLoop(time = 0) {
     requestAnimationFrame(gameLoop);
 }
 
+function startGame() {
+    pause = false;
+    if (start.textContent === "Старт") start.textContent = "Рестарт";
+    snake = new Snake();
+    score = 0;
+    scoreDisplay.textContent = score;
+    direction = { x: 1, y: 0 };
+    nextDirection = { x: 1, y: 0 };
+    playing = true;
+    lastTime = 0;
+    paused.style.display = "block"; // Показ кнопки паузы во время игры
+    canvas.style.display = "block";
+    scoreDisplay.style.display = "block";
+    GameOverScreen.style.display = "none";
+    placeFruit();
+    gameLoop();
+}
+
+let pause = false;
+function pauseGame() {
+    pause = !pause;
+    if (!pause) {
+        lastTime = performance.now(); // Чтобы время не убежало вперед
+        paused.textContent = "Пауза"
+        gameLoop();
+    } else {
+        paused.textContent = "Продолжить";
+    }
+}
+
+function endGame() {
+    playing = false;
+    canvas.style.display = "none";
+    scoreDisplay.style.display = "none";
+    paused.style.display = "none"; // Кнопка паузы скрывается во время эндскрина
+    GameOverScreen.style.display = "flex";
+
+    finalScore.textContent = `Итоговый счет: ${score}`;
+    finalScore.style.margin = "20px"; // Чет маловато в стилях показалось
+}
+
+
 const directions = {
     ArrowUp: () => {if (direction.y !== 1) nextDirection = { x: 0, y: -1 };},
     ArrowDown: () => {if (direction.y !== -1) nextDirection = { x: 0, y: 1 };},
@@ -128,12 +167,32 @@ const directions = {
 }
 
 document.addEventListener("keydown", (e) => {
+    if (snake.collisionCheck() && e.code !== "KeyR") return; // Чтобы после проигрыша кнопки нельзя было тыкать
+    if (directions[e.code] && pause) return; // Чтобы во время паузы нельзя было менять направление
+    if (e.code === "KeyR") startGame();
+    if (e.code === "KeyP") pauseGame();
     if (directions[e.code]) directions[e.code]();
+    if (e.code === "ShiftRight" || e.code === "ShiftLeft" || e.code === "Space")
+        speed = 100; // Меньше делэй - больше скорость
+});
+
+document.addEventListener("keyup", (e) => {
+    if (e.code === "ShiftRight" || e.code === "ShiftLeft" || e.code === "Space") {
+        speed = 250;
+    }
+});
+
+start.addEventListener("click", () => {
+    startGame();
+    start.blur();
+});
+
+paused.addEventListener("click", () => {
+    pauseGame();
+    start.blur();
 })
 
-let touchStartX = 0;
-let touchStartY = 0;
-
+let [touchStartX, touchStartY] = [0, 0];
 document.addEventListener("touchstart", (e) => {
     const touch = e.touches[0];
     touchStartX = touch.clientX;
@@ -154,26 +213,4 @@ document.addEventListener("touchend", (e) => {
     }
 })
 
-function endGame() {
-    playing = false;
-    canvas.style.display = "none";
-    scoreDisplay.style.display = "none";
-    GameOverScreen.style.display = "flex";
-
-    finalScore.textContent = `Итоговый счет: ${score}`;
-}
-
-start.addEventListener("click", () => {
-    snake = new Snake();
-    score = 0;
-    currentScore.textContent = score;
-    direction = { x: 1, y: 0 };
-    nextDirection = { x: 1, y: 0 };
-    playing = true;
-    lastTime = 0;
-    canvas.style.display = "block";
-    scoreDisplay.style.display = "block";
-    GameOverScreen.style.display = "none";
-    placeFruit();
-    gameLoop();
-});
+// Для мобилок ускорение добавлю попозже
